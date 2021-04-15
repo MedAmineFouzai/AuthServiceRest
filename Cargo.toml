@@ -1,0 +1,32 @@
+[package]
+name = "auth_service"
+version = "0.1.0"
+authors = ["MedAmineFouzai <54685665+MedAmineFouzai@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "3"
+actix-rt = "1"
+actix-cors = "0.5.4"
+tracing-actix-web = "0.2"
+tracing = "0.1"
+tracing-log = "0.1.2"
+tracing-subscriber = "0.2"
+tracing-bunyan-formatter = "0.1.7"
+jsonwebtoken = "7.2.0"
+serde = "1.0.123"
+serde_json = "1.0.63"
+pwhash = "1"
+lettre = "0.9.5"
+lettre_email = "0.9"
+derive_more = "0.99.11"
+futures = "0.3.4"
+bson = "1.2.0"
+dotenv = "0.15.0"
+load-dotenv = "0.1.2"
+[dependencies.mongodb]
+version = "1.1.1"
+default-features = false
+features = ["async-std-runtime"]
