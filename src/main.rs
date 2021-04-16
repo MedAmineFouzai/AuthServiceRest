@@ -55,7 +55,7 @@ pub fn init_services(cfg: &mut ServiceConfig) {
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-   let port:u32= env::var("PORT")
+   let port:u16= env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
         .parse().expect("PORT must be a number");
     let subscriber = get_subscriber("app".into(), "info".into());
@@ -74,7 +74,7 @@ async fn main() -> std::io::Result<()> {
             })
             .service(scope("/api/v1/users/").configure(init_services))
     })
-    .bind(format!("127.0.0.1:{}",port))?
+     .bind(("0.0.0.0".to_string(),port))?
     .run()
     .await
 }
