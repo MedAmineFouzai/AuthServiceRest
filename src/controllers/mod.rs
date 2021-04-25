@@ -11,8 +11,9 @@ use actix_web::{
 use futures::stream::StreamExt;
 use schema::{
     AuthResponseModel, EmailModel, Role, TokenPayload, UpdateUserInfo, UpdateUserPassword,
-    UserDeserializeModel, UserId, UserLoginModel, UserModel, UserResponseModel,
+    UserDeserializeModel, UserId, UserLoginModel, UserModel, UserResponseModel,DeleteByUserId
 };
+
 
 #[post("auth/signup")]
 pub async fn signup(
@@ -28,7 +29,19 @@ pub async fn signup(
         }
     }) {
         Ok(user_data) => Ok(
+
             match app_data
+                .container
+                .user
+                .find_one_by_email(&user_data.email)
+                .await
+            {
+                Ok(result) => match result.unwrap_or(bson::Document::new()) {
+                    result => {
+                        if !result.is_empty() {
+                            Err(UserCustomResponseError::AlreadyExist)
+                        } else {
+                            match app_data
                 .container
                 .user
                 .insert_one(|mut user_data: UserModel| -> UserModel {
@@ -79,7 +92,15 @@ pub async fn signup(
                     None => Err(UserCustomResponseError::InternalError),
                 },
                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-            },
+                }
+                        }
+                    }
+                },
+
+                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
+            }
+
+            
         ),
         Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
     }?
@@ -218,7 +239,7 @@ pub async fn get_all_users(
                     }
                     Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
                 },
-                Role::User => Err(UserCustomResponseError::NotAllowed),
+                Role::Client => Err(UserCustomResponseError::NotAllowed),
                 Role::Developer => Err(UserCustomResponseError::NotAllowed),
                 Role::ProductOwner => match app_data.container.user.find_all_users().await {
                     Ok(cursor) => {
@@ -347,7 +368,7 @@ pub async fn get_user_by_id(
                     }?
                 }
 
-                Role::User => Err(UserCustomResponseError::NotAllowed),
+                Role::Client => Err(UserCustomResponseError::NotAllowed),
 
                 Role::Developer => Err(UserCustomResponseError::NotAllowed),
 
@@ -362,7 +383,7 @@ pub async fn get_user_by_id(
 pub async fn delete_user(
     req: HttpRequest,
     app_data: web::Data<crate::AppState>,
-    user_data: Json<UserId>,
+    mut user_data: Json<DeleteByUserId>,
 ) -> Result<HttpResponse, UserCustomResponseError> {
     let basic_auth_header = match req.headers().get("Authorization") {
         Some(header) => match header
@@ -384,14 +405,15 @@ pub async fn delete_user(
         },
         None => Err(UserCustomResponseError::BadHeaderData),
     };
-
+ 
     match basic_auth_header {
         Ok(token) => {
+            user_data.hash_password();
             let token: TokenPayload = token.claims;
             let exists = match app_data
                 .container
                 .user
-                .find_one_by_id(&token.id)
+                .find_one_and_id_and_pass(&token.id,&user_data.password)
                 .await
                 .and_then(|document| {
                     let user = match document {
@@ -418,16 +440,16 @@ pub async fn delete_user(
             match exists?.role {
                 Role::Admin => {
                     match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
-                        match serde_json::from_str::<UserId>(&user_data) {
+                        match serde_json::from_str::<DeleteByUserId>(&user_data) {
                             Ok(user) => Ok(user),
                             Err(e) => Err(e.into()),
                         }
                     }) {
-                        Ok(user_id) => Ok(
+                        Ok(user_data) => Ok(
                             match app_data
                                 .container
                                 .user
-                                .delete_one(&user_id.id)
+                                .delete_one(&user_data.id)
                                 .await
                                 .and_then(|document| {
                                     let user = match document {
@@ -459,7 +481,7 @@ pub async fn delete_user(
                         Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
                     }?
                 }
-                Role::User => {
+                Role::Client => {
                     match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
                         match serde_json::from_str::<UserId>(&user_data) {
                             Ok(user) => Ok(user),
@@ -828,7 +850,7 @@ pub async fn reset_password(
     
             send_email_for_password_reset(
                 &format!("{} {}", &user.first_name, &user.last_name),
-                &format!("https://somthing/{}/",&user.id),
+                &format!("localhost:3000/recover-account?code={}",&user.id),
                 &user.email,
             )
             .await?;

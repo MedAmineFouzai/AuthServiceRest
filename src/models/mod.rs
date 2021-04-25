@@ -32,7 +32,9 @@ impl UserCollection {
             )
             .await?)
     }
+    
 
+ 
     pub async fn find_all(&self) -> Result<Cursor, Error> {
         Ok(self.collection.find(None, None).await?)
     }
@@ -42,7 +44,7 @@ impl UserCollection {
             .collection
             .find(
                 doc! {
-                    "role":"User"
+                    "role":"Client"
                 },
                 None,
             )
@@ -158,6 +160,19 @@ impl UserCollection {
             .find_one(
                 doc! {
                     "_id":ObjectId::with_string(id).unwrap()
+                },
+                None,
+            )
+            .await?)
+    }
+
+    pub async fn find_one_and_id_and_pass(&self, id: &str,password:&str) -> Result<Option<Document>, Error> {
+        Ok(self
+            .collection
+            .find_one(
+                doc! {
+                    "_id":ObjectId::with_string(id).unwrap(),
+                    "password":password
                 },
                 None,
             )

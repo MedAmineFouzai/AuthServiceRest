@@ -21,6 +21,9 @@ pub enum UserCustomResponseError {
     #[display(fmt = "User not Found!")]
     NotFound,
 
+    #[display(fmt = "User Already Exist!")]
+    AlreadyExist,
+
     #[display(fmt = "User not Allowed!")]
     NotAllowed,
     // #[display(fmt = "Timeout !")]
@@ -41,7 +44,7 @@ impl error::ResponseError for UserCustomResponseError {
             UserCustomResponseError::BadClientData => StatusCode::BAD_REQUEST,
             UserCustomResponseError::NotFound => StatusCode::NOT_FOUND,
             UserCustomResponseError::BadHeaderData => StatusCode::FORBIDDEN,
-            // UserCustomResponseError::Timeout => StatusCode::GATEWAY_TIMEOUT,
+            UserCustomResponseError::AlreadyExist => StatusCode::CONFLICT,
             UserCustomResponseError::NotAllowed => StatusCode::FORBIDDEN,
         }
     }

@@ -9,6 +9,26 @@ pub struct UserId {
     pub id: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeleteByUserId {
+    pub id: String,
+    pub password:String
+}
+
+impl DeleteByUserId {
+    pub fn hash_password(&mut self) {
+        self.password = bcrypt::hash_with(
+            BcryptSetup {
+                variant: Some(BcryptVariant::V2a),
+                salt: Some("delta"),
+                cost: Some(4),
+            },
+            &self.password,
+        )
+        .unwrap();
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PhoneModel {
     pub prefix: String,
@@ -69,7 +89,7 @@ impl PasswordModel {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Role {
     Admin,
-    User,
+    Client,
     ProductOwner,
     Developer,
 }
@@ -80,7 +100,7 @@ impl FromStr for Role {
     fn from_str(input: &str) -> Result<Role, Self::Err> {
         match input {
             "Admin" => Ok(Role::Admin),
-            "User" => Ok(Role::User),
+            "Client" => Ok(Role::Client),
             "ProductOwner" => Ok(Role::ProductOwner),
             "Developer" => Ok(Role::Developer),
             _ => Err(()),
