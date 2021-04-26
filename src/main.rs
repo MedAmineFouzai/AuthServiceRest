@@ -6,7 +6,6 @@ use actix_web::{
     web::{scope, ServiceConfig},
     App, HttpServer,
 };
-use std::net::{SocketAddr, ToSocketAddrs};
 
 use load_dotenv::load_dotenv;
 use middleware::{

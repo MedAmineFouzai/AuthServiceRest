@@ -1,6 +1,7 @@
 extern crate jsonwebtoken as jwt;
 use crate::helper::mailer::emailer::send_email_for_password_reset;
 use crate::middleware::error::UserCustomResponseError;
+use bson::Document;
 use jwt::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 mod schema;
 use actix_web::{
@@ -182,7 +183,7 @@ pub async fn get_all_users(
                 },
             ) {
                 Ok(token_payload) => Ok(token_payload),
-                Err(_jwt_error) => Err(UserCustomResponseError::InternalError),
+                Err(_jwt_error) => Err(UserCustomResponseError::BadHeaderData),
             },
             Err(_to_str_error) => Err(UserCustomResponseError::BadHeaderData),
         },
@@ -286,7 +287,7 @@ pub async fn get_user_by_id(
                 },
             ) {
                 Ok(token_payload) => Ok(token_payload),
-                Err(_jwt_error) => Err(UserCustomResponseError::InternalError),
+                Err(_jwt_error) => Err(UserCustomResponseError::BadHeaderData),
             },
             Err(_to_str_error) => Err(UserCustomResponseError::BadHeaderData),
         },
@@ -399,7 +400,7 @@ pub async fn delete_user(
                 },
             ) {
                 Ok(token_payload) => Ok(token_payload),
-                Err(_jwt_error) => Err(UserCustomResponseError::InternalError),
+                Err(_jwt_error) => Err(UserCustomResponseError::BadHeaderData),
             },
             Err(_to_str_error) => Err(UserCustomResponseError::BadHeaderData),
         },
@@ -636,7 +637,7 @@ pub async fn update_user_info(
                 },
             ) {
                 Ok(token_payload) => Ok(token_payload),
-                Err(_jwt_error) => Err(UserCustomResponseError::InternalError),
+                Err(_jwt_error) => Err(UserCustomResponseError::BadHeaderData),
             },
             Err(_to_str_error) => Err(UserCustomResponseError::BadHeaderData),
         },
@@ -691,13 +692,15 @@ pub async fn update_user_info(
                     }
                     .and_then(|response| {
                         match bson::from_document::<UserDeserializeModel>(
-                            response.unwrap().unwrap(),
+                            response
+                            .unwrap_or(Some(Document::new()))
+                            .unwrap_or(Document::new()),
                         ) {
                             //change this one
                             Ok(user) => {
                                 Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
                             }
-                            Err(_bson_de_error) => Err(UserCustomResponseError::InternalError),
+                            Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
                         }
                     });
                 update_result
@@ -730,7 +733,7 @@ pub async fn update_user_password(
                 },
             ) {
                 Ok(token_payload) => Ok(token_payload),
-                Err(_jwt_error) => Err(UserCustomResponseError::InternalError),
+                Err(_jwt_error) => Err(UserCustomResponseError::BadHeaderData),
             },
             Err(_to_str_error) => Err(UserCustomResponseError::BadHeaderData),
         },
@@ -790,13 +793,15 @@ pub async fn update_user_password(
                     }
                     .and_then(|response| {
                         match bson::from_document::<UserDeserializeModel>(
-                            response.unwrap().unwrap(),
+                            
+                            response.unwrap().unwrap_or(Document::new()),
+                        
                         ) {
                             //change this one
                             Ok(user) => {
                                 Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
                             }
-                            Err(_bson_de_error) => Err(UserCustomResponseError::InternalError),
+                            Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
                         }
                     });
                 update_result
@@ -891,13 +896,13 @@ pub async fn confirm_reset_user_password(
                     }
                     .and_then(|response| {
                         match bson::from_document::<UserDeserializeModel>(
-                            response.unwrap().unwrap(),
+                            response.unwrap().unwrap_or(Document::new()),
                         ) {
                             //change this one
                             Ok(user) => {
                                 Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
                             }
-                            Err(_bson_de_error) => Err(UserCustomResponseError::InternalError),
+                            Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
                         }
                     })
 

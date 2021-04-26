@@ -31,7 +31,7 @@ pub mod emailer {
      Otherwise ,you can reset your password using this link:
      </p>
      <div>
-         <a href={}>Click here to reset your Password </a>  
+         <a href={} >Click here to reset your Password </a>  
      </div>
      <p>   
      Thanks.actix_web
