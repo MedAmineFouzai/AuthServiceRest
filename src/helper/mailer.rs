@@ -10,7 +10,7 @@ pub mod emailer {
         reset_link: &str,
         to: &str,
     ) -> Result<Response, UserCustomResponseError> {
-        match SmtpClient::new_simple("smtp.googlemail.com") {
+        match SmtpClient::new_simple("smtp.gmail.com") {
             Ok(smtp) => {
                 let mut mailer = smtp
                     .credentials(Credentials::new(
