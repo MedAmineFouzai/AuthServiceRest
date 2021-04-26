@@ -850,7 +850,7 @@ pub async fn reset_password(
     
             send_email_for_password_reset(
                 &format!("{} {}", &user.first_name, &user.last_name),
-                &format!("localhost:3000/recover-account?code={}",&user.id),
+                &format!("http://localhost:3000/recover-account?code={}",&user.id),
                 &user.email,
             )
             .await?;
