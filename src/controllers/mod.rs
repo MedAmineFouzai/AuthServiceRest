@@ -1,5 +1,5 @@
 extern crate jsonwebtoken as jwt;
-use crate::helper::mailer::emailer::send_email_for_password_reset;
+use crate::helper::mailer::emailer::{send_user_login_account,send_email_for_password_reset};
 use crate::middleware::error::UserCustomResponseError;
 use bson::Document;
 use jwt::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -14,6 +14,8 @@ use schema::{
     AuthResponseModel, EmailModel, Role, TokenPayload, UpdateUserInfo, UpdateUserPassword,
     UserDeserializeModel, UserId, UserLoginModel, UserModel, UserResponseModel,DeleteByUserId
 };
+
+use self::schema::SendAccountModel;
 
 
 #[post("auth/signup")]
@@ -872,8 +874,6 @@ pub async fn confirm_reset_user_password(
     app_data: web::Data<crate::AppState>,
     user_data: Json<UpdateUserPassword>,
 ) -> Result<HttpResponse, UserCustomResponseError> {
-
-
     
         match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
                         match serde_json::from_str::<UpdateUserPassword>(&user_data) {
@@ -906,4 +906,59 @@ pub async fn confirm_reset_user_password(
                         }
                     })
 
+}
+
+
+#[post("auth/send/account")]
+pub async fn send_user_account(
+    app_data: web::Data<crate::AppState>,
+    user_data: Json<SendAccountModel>,
+) -> Result<HttpResponse, UserCustomResponseError> {
+    println!("user_data: {:?}", user_data);
+    let accoun_object=user_data.clone();
+    let result = match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+        match serde_json::from_str::<SendAccountModel>(&user_data) {
+            Ok(user) => Ok(user),
+            Err(e) => Err(e.into()),
+        }
+    }) {
+        Ok(account_object) => {
+            match app_data
+                .container
+                .user
+                .find_one_by_email(&account_object.email)
+                .await
+            {
+                Ok(result) => match result.unwrap_or(bson::Document::new()) {
+                    result => {
+                        if !result.is_empty() {
+                            match bson::from_document::<UserDeserializeModel>(result) {
+                                Ok(user) => Ok(UserResponseModel::build_user(user)),
+                                Err(_bson_de_error) => Err(UserCustomResponseError::InternalError),
+                            }
+                        } else {
+                            Err(UserCustomResponseError::NotFound)
+                        }
+                    }
+                },
+
+                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
+            }
+        }
+        Err(_bson_de_error) => Err(UserCustomResponseError::InternalError),
+    };
+    match result {
+        Ok(user) => {
+    
+            send_user_login_account(
+                &format!("{} {}", &user.first_name, &user.last_name),
+                &accoun_object.password,
+                &accoun_object.role,
+                &user.email
+            )
+            .await?;
+            Ok(HttpResponse::Ok().json(user))
+        }
+        Err(e) => Err(e.into()),
+    }
 }

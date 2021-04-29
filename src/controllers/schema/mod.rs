@@ -43,6 +43,8 @@ pub struct PasswordModel {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserInfo {
+    pub first_name:String,
+    pub last_name:String,
     pub email: String,
     pub phone: PhoneModel,
     pub address: AddressModel,
@@ -50,6 +52,13 @@ pub struct UserInfo {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EmailModel {
     pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SendAccountModel {
+    pub email: String,
+    pub password:String,
+    pub role:String
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

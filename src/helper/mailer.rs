@@ -51,4 +51,55 @@ pub mod emailer {
             Err(_smtp_error) => Err(UserCustomResponseError::InternalError),
         }
     }
+
+
+    pub async fn send_user_login_account(
+        user_name: &str,
+        password: &str,
+        role:&str,
+        to: &str,
+    ) -> Result<Response, UserCustomResponseError> {
+        match SmtpClient::new_simple("smtp.gmail.com") {
+            Ok(smtp) => {
+                let mut mailer = smtp
+                    .credentials(Credentials::new(
+                        "logeddata@gmail.com".into(),
+                        "logdatatxt".into(),
+                    ))
+                    .transport();
+
+                let email= match EmailBuilder::new()
+     .to(to)
+     .from("logeddata@gmail.com")
+     .subject("Astro Build Create Account")
+     .html(format!("
+
+     <h3>Hi ,{}</h3>
+     <p>
+     we've received a request to create a new Account with Role {}. 
+     </p>
+            <h1>Email: {}</h1>
+            <h1>Password: {}</h1>
+     <p>   
+     Thanks actix_web
+     </p>
+     <p>
+     The AstroLab Team
+     </p>  
+     ",user_name,role,to,password)).build(){
+
+         Ok(builder)=>Ok(builder),
+         Err(_email_error)=>Err(UserCustomResponseError::InternalError)
+        };
+                match mailer.send(email?.into()) {
+                    Ok(mail) => Ok(mail),
+                    Err(_smtp_error) => Err(UserCustomResponseError::InternalError),
+                }
+            }
+            Err(_smtp_error) => Err(UserCustomResponseError::InternalError),
+        }
+    }
+
+
+
 }

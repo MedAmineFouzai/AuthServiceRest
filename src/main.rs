@@ -51,6 +51,7 @@ pub fn init_services(cfg: &mut ServiceConfig) {
         .service(controllers::update_user_password)
         .service(controllers::reset_password)
         .service(controllers::confirm_reset_user_password)
+        .service(controllers::send_user_account)
         .service(controllers::get_user_by_id);
 }
 
