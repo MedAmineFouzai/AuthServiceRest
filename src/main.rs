@@ -52,6 +52,7 @@ pub fn init_services(cfg: &mut ServiceConfig) {
         .service(controllers::reset_password)
         .service(controllers::confirm_reset_user_password)
         .service(controllers::send_user_account)
+        .service(controllers::verfiy_Token)
         .service(controllers::get_user_by_id);
 }
 
@@ -59,10 +60,10 @@ pub fn init_services(cfg: &mut ServiceConfig) {
 async fn main() -> std::io::Result<()> {
     let subscriber = get_subscriber("app".into(), "info".into());
     init_subscriber(subscriber);
-    let port:u16= env::var("PORT")
+    let port: u16 = env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
-        .parse().expect("PORT must be a number");
- 
+        .parse()
+        .expect("PORT must be a number");
 
     let user_collection = establish_connection().await;
     println!("🚀 Server ready at http://127.0.0.1:8080");
@@ -78,7 +79,7 @@ async fn main() -> std::io::Result<()> {
             })
             .service(scope("/api/v1/users/").configure(init_services))
     })
-    .bind(("0.0.0.0".to_string(),port))?
+    .bind(("0.0.0.0".to_string(), port))?
     .run()
     .await
 }

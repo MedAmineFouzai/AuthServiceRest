@@ -32,9 +32,7 @@ impl UserCollection {
             )
             .await?)
     }
-    
 
- 
     pub async fn find_all(&self) -> Result<Cursor, Error> {
         Ok(self.collection.find(None, None).await?)
     }
@@ -166,7 +164,11 @@ impl UserCollection {
             .await?)
     }
 
-    pub async fn find_one_and_id_and_pass(&self, id: &str,password:&str) -> Result<Option<Document>, Error> {
+    pub async fn find_one_and_id_and_pass(
+        &self,
+        id: &str,
+        password: &str,
+    ) -> Result<Option<Document>, Error> {
         Ok(self
             .collection
             .find_one(

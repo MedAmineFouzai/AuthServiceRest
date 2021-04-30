@@ -1,5 +1,5 @@
 extern crate jsonwebtoken as jwt;
-use crate::helper::mailer::emailer::{send_user_login_account,send_email_for_password_reset};
+use crate::helper::mailer::emailer::{send_email_for_password_reset, send_user_login_account};
 use crate::middleware::error::UserCustomResponseError;
 use bson::Document;
 use jwt::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -11,12 +11,11 @@ use actix_web::{
 };
 use futures::stream::StreamExt;
 use schema::{
-    AuthResponseModel, EmailModel, Role, TokenPayload, UpdateUserInfo, UpdateUserPassword,
-    UserDeserializeModel, UserId, UserLoginModel, UserModel, UserResponseModel,DeleteByUserId
+    AuthResponseModel, DeleteByUserId, EmailModel, Role, TokenPayload, UpdateUserInfo,
+    UpdateUserPassword, UserDeserializeModel, UserId, UserLoginModel, UserModel, UserResponseModel,
 };
 
 use self::schema::SendAccountModel;
-
 
 #[post("auth/signup")]
 pub async fn signup(
@@ -32,7 +31,6 @@ pub async fn signup(
         }
     }) {
         Ok(user_data) => Ok(
-
             match app_data
                 .container
                 .user
@@ -45,25 +43,26 @@ pub async fn signup(
                             Err(UserCustomResponseError::AlreadyExist)
                         } else {
                             match app_data
-                .container
-                .user
-                .insert_one(|mut user_data: UserModel| -> UserModel {
-                    user_data.hash_password();
-                    user_data
-                }(user_data))
-                .await
-            {
-                Ok(id) => match id.inserted_id.as_object_id() {
-                    Some(id) => {
-                        match app_data
-                            .container
-                            .user
-                            .find_one_by_id(&id.to_string())
-                            .await
-                        {
-                            Ok(result) => {
-                                if result != None {
-                                    match bson::from_document::<UserDeserializeModel>(
+                                .container
+                                .user
+                                .insert_one(|mut user_data: UserModel| -> UserModel {
+                                    user_data.hash_password();
+                                    user_data
+                                }(user_data))
+                                .await
+                            {
+                                Ok(id) => {
+                                    match id.inserted_id.as_object_id() {
+                                        Some(id) => {
+                                            match app_data
+                                                .container
+                                                .user
+                                                .find_one_by_id(&id.to_string())
+                                                .await
+                                            {
+                                                Ok(result) => {
+                                                    if result != None {
+                                                        match bson::from_document::<UserDeserializeModel>(
                                         result.unwrap(),
                                     ) {
                                         Ok(user) => {
@@ -85,25 +84,26 @@ pub async fn signup(
                                             Err(UserCustomResponseError::InternalError)
                                         }
                                     }
-                                } else {
-                                    Err(UserCustomResponseError::NotFound)
+                                                    } else {
+                                                        Err(UserCustomResponseError::NotFound)
+                                                    }
+                                                }
+                                                Err(_mongodb_error) => {
+                                                    Err(UserCustomResponseError::InternalError)
+                                                }
+                                            }
+                                        }
+                                        None => Err(UserCustomResponseError::InternalError),
+                                    }
                                 }
+                                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
                             }
-                            Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-                        }
-                    }
-                    None => Err(UserCustomResponseError::InternalError),
-                },
-                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-                }
                         }
                     }
                 },
 
                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-            }
-
-            
+            },
         ),
         Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
     }?
@@ -371,11 +371,155 @@ pub async fn get_user_by_id(
                     }?
                 }
 
-                Role::Client => Err(UserCustomResponseError::NotAllowed),
+                Role::Client => {
+                    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+                        match serde_json::from_str::<UserId>(&user_data) {
+                            Ok(user) => Ok(user),
+                            Err(e) => Err(e.into()),
+                        }
+                    }) {
+                        Ok(user_id) => Ok(
+                            match app_data
+                                .container
+                                .user
+                                .find_one_by_id(&user_id.id)
+                                .await
+                                .and_then(|document| {
+                                    let user = match document {
+                                        Some(doc) => doc,
+                                        None => bson::Document::new(),
+                                    };
+                                    Ok(user)
+                                }) {
+                                Ok(result) => match result {
+                                    result => {
+                                        if !result.is_empty() {
+                                            match bson::from_document::<UserDeserializeModel>(
+                                                result,
+                                            ) {
+                                                Ok(user) => {
+                                                    let user = UserResponseModel::build_user(user);
+                                                    if token.id == user.id {
+                                                        Ok(HttpResponse::Ok().json(user))
+                                                    } else {
+                                                        Err(UserCustomResponseError::NotAllowed)
+                                                    }
+                                                }
+                                                Err(_bson_de_error) => {
+                                                    Err(UserCustomResponseError::InternalError)
+                                                }
+                                            }
+                                        } else {
+                                            Err(UserCustomResponseError::NotFound)
+                                        }
+                                    }
+                                },
+                                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
+                            },
+                        ),
+                        Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
+                    }?
+                }
 
-                Role::Developer => Err(UserCustomResponseError::NotAllowed),
+                Role::Developer => {
+                    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+                        match serde_json::from_str::<UserId>(&user_data) {
+                            Ok(user) => Ok(user),
+                            Err(e) => Err(e.into()),
+                        }
+                    }) {
+                        Ok(user_id) => Ok(
+                            match app_data
+                                .container
+                                .user
+                                .find_one_by_id(&user_id.id)
+                                .await
+                                .and_then(|document| {
+                                    let user = match document {
+                                        Some(doc) => doc,
+                                        None => bson::Document::new(),
+                                    };
+                                    Ok(user)
+                                }) {
+                                Ok(result) => match result {
+                                    result => {
+                                        if !result.is_empty() {
+                                            match bson::from_document::<UserDeserializeModel>(
+                                                result,
+                                            ) {
+                                                Ok(user) => {
+                                                    let user = UserResponseModel::build_user(user);
+                                                    if token.id == user.id {
+                                                        Ok(HttpResponse::Ok().json(user))
+                                                    } else {
+                                                        Err(UserCustomResponseError::NotAllowed)
+                                                    }
+                                                }
+                                                Err(_bson_de_error) => {
+                                                    Err(UserCustomResponseError::InternalError)
+                                                }
+                                            }
+                                        } else {
+                                            Err(UserCustomResponseError::NotFound)
+                                        }
+                                    }
+                                },
+                                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
+                            },
+                        ),
+                        Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
+                    }?
+                }
 
-                Role::ProductOwner => Err(UserCustomResponseError::NotAllowed),
+                Role::ProductOwner => {
+                    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+                        match serde_json::from_str::<UserId>(&user_data) {
+                            Ok(user) => Ok(user),
+                            Err(e) => Err(e.into()),
+                        }
+                    }) {
+                        Ok(user_id) => Ok(
+                            match app_data
+                                .container
+                                .user
+                                .find_one_by_id(&user_id.id)
+                                .await
+                                .and_then(|document| {
+                                    let user = match document {
+                                        Some(doc) => doc,
+                                        None => bson::Document::new(),
+                                    };
+                                    Ok(user)
+                                }) {
+                                Ok(result) => match result {
+                                    result => {
+                                        if !result.is_empty() {
+                                            match bson::from_document::<UserDeserializeModel>(
+                                                result,
+                                            ) {
+                                                Ok(user) => {
+                                                    let user = UserResponseModel::build_user(user);
+                                                    if token.id == user.id {
+                                                        Ok(HttpResponse::Ok().json(user))
+                                                    } else {
+                                                        Err(UserCustomResponseError::NotAllowed)
+                                                    }
+                                                }
+                                                Err(_bson_de_error) => {
+                                                    Err(UserCustomResponseError::InternalError)
+                                                }
+                                            }
+                                        } else {
+                                            Err(UserCustomResponseError::NotFound)
+                                        }
+                                    }
+                                },
+                                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
+                            },
+                        ),
+                        Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
+                    }?
+                }
             }
         }
         Err(basic_auth_header_error) => Err(basic_auth_header_error.into()),
@@ -408,7 +552,7 @@ pub async fn delete_user(
         },
         None => Err(UserCustomResponseError::BadHeaderData),
     };
- 
+
     match basic_auth_header {
         Ok(token) => {
             user_data.hash_password();
@@ -416,7 +560,7 @@ pub async fn delete_user(
             let exists = match app_data
                 .container
                 .user
-                .find_one_and_id_and_pass(&token.id,&user_data.password)
+                .find_one_and_id_and_pass(&token.id, &user_data.password)
                 .await
                 .and_then(|document| {
                     let user = match document {
@@ -675,45 +819,195 @@ pub async fn update_user_info(
                 },
                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
             };
-
-            if exists.is_ok() {
-                let update_result =
+            
+            match exists?.role {
+                Role::Admin => {
                     match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
-                        match serde_json::from_str::<UpdateUserInfo>(&user_data) {
-                            Ok(user) => Ok(user),
-                            Err(e) => Err(e.into()),
-                        }
-                    }) {
-                        Ok(update_result) => Ok(app_data
-                            .container
-                            .user
-                            .update_one(&update_result.id, update_result.user_info)
-                            .await)
-                        ,
-                        Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
-                    }
-                    .and_then(|response| {
-                        match bson::from_document::<UserDeserializeModel>(
-                            response
-                            .unwrap_or(Some(Document::new()))
-                            .unwrap_or(Document::new()),
-                        ) {
-                            //change this one
-                            Ok(user) => {
-                                Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
-                            }
-                            Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
-                        }
-                    });
-                update_result
-            } else {
-                Err(UserCustomResponseError::BadHeaderData)
+                                    match serde_json::from_str::<UpdateUserInfo>(&user_data) {
+                                        Ok(user) => Ok(user),
+                                        Err(e) => Err(e.into()),
+                                    }
+                                }) {
+                                    Ok(update_result) => Ok(
+                                        app_data
+                                        .container
+                                        .user
+                                        .update_one(&update_result.id, update_result.user_info)
+                                        .await
+                                    ),
+                                    Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
+                                }
+                                .and_then(|response| {
+                                    match bson::from_document::<UserDeserializeModel>(
+                                        response
+                                            .unwrap_or(Some(Document::new()))
+                                            .unwrap_or(Document::new()),
+                                    ) {
+                                        //change this one
+                                        Ok(user) => {
+                                            Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
+                                        }
+                                        Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
+                                    }
+                                })
+
+                }
+                Role::Client => {
+                    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+                                    match serde_json::from_str::<UpdateUserInfo>(&user_data) {
+                                        Ok(user) => Ok(user),
+                                        Err(e) => Err(e.into()),
+                                    }
+                                }) {
+                                    Ok(update_result) =>{ 
+                                        if update_result.id==token.id{
+                                            Ok(
+                                                app_data
+                                                .container
+                                                .user
+                                                .update_one(&update_result.id, update_result.user_info)
+                                                .await
+                                            )
+                                        }else {
+                                            Err(UserCustomResponseError::NotAllowed)
+                                        }
+                                     
+                                },
+                                    Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
+                                }
+                                .and_then(|response| {
+                                    match bson::from_document::<UserDeserializeModel>(
+                                        response
+                                            .unwrap_or(Some(Document::new()))
+                                            .unwrap_or(Document::new()),
+                                    ) {
+                                        //change this one
+                                        Ok(user) => {
+                                            Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
+                                        }
+                                        Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
+                                    }
+                                })
+
+                }
+                Role::ProductOwner =>  {
+                    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+                                    match serde_json::from_str::<UpdateUserInfo>(&user_data) {
+                                        Ok(user) => Ok(user),
+                                        Err(e) => Err(e.into()),
+                                    }
+                                }) {
+                                    Ok(update_result) =>{ 
+                                        if update_result.id==token.id{
+                                            Ok(
+                                                app_data
+                                                .container
+                                                .user
+                                                .update_one(&update_result.id, update_result.user_info)
+                                                .await
+                                            )
+                                        }else {
+                                            Err(UserCustomResponseError::NotAllowed)
+                                        }
+                                     
+                                },
+                                    Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
+                                }
+                                .and_then(|response| {
+                                    match bson::from_document::<UserDeserializeModel>(
+                                        response
+                                            .unwrap_or(Some(Document::new()))
+                                            .unwrap_or(Document::new()),
+                                    ) {
+                                        //change this one
+                                        Ok(user) => {
+                                            Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
+                                        }
+                                        Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
+                                    }
+                                })
+
+                }
+                Role::Developer =>  {
+                    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+                                    match serde_json::from_str::<UpdateUserInfo>(&user_data) {
+                                        Ok(user) => Ok(user),
+                                        Err(e) => Err(e.into()),
+                                    }
+                                }) {
+                                    Ok(update_result) =>{ 
+                                        if update_result.id==token.id{
+                                            Ok(
+                                                app_data
+                                                .container
+                                                .user
+                                                .update_one(&update_result.id, update_result.user_info)
+                                                .await
+                                            )
+                                        }else {
+                                            Err(UserCustomResponseError::NotAllowed)
+                                        }
+                                     
+                                },
+                                    Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
+                                }
+                                .and_then(|response| {
+                                    match bson::from_document::<UserDeserializeModel>(
+                                        response
+                                            .unwrap_or(Some(Document::new()))
+                                            .unwrap_or(Document::new()),
+                                    ) {
+                                        //change this one
+                                        Ok(user) => {
+                                            Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
+                                        }
+                                        Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
+                                    }
+                                })
+
+                }
             }
-        }
+
+
+
+            // if exists.is_ok() {
+            //     let update_result =
+            //         match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+            //             match serde_json::from_str::<UpdateUserInfo>(&user_data) {
+            //                 Ok(user) => Ok(user),
+            //                 Err(e) => Err(e.into()),
+            //             }
+            //         }) {
+            //             Ok(update_result) => Ok(app_data
+            //                 .container
+            //                 .user
+            //                 .update_one(&update_result.id, update_result.user_info)
+            //                 .await),
+            //             Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
+            //         }
+            //         .and_then(|response| {
+            //             match bson::from_document::<UserDeserializeModel>(
+            //                 response
+            //                     .unwrap_or(Some(Document::new()))
+            //                     .unwrap_or(Document::new()),
+            //             ) {
+            //                 //change this one
+            //                 Ok(user) => {
+            //                     Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
+            //                 }
+            //                 Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
+            //             }
+            //         });
+            //     update_result
+            // } else {
+            //     Err(UserCustomResponseError::BadHeaderData)
+            // }
+
+
+        },
         Err(basic_auth_header_error) => Err(basic_auth_header_error.into()),
     }
 }
-
 
 #[put("/update/password")]
 pub async fn update_user_password(
@@ -795,9 +1089,7 @@ pub async fn update_user_password(
                     }
                     .and_then(|response| {
                         match bson::from_document::<UserDeserializeModel>(
-                            
                             response.unwrap().unwrap_or(Document::new()),
-                        
                         ) {
                             //change this one
                             Ok(user) => {
@@ -854,10 +1146,9 @@ pub async fn reset_password(
     };
     match result {
         Ok(user) => {
-    
             send_email_for_password_reset(
                 &format!("{} {}", &user.first_name, &user.last_name),
-                &format!("http://localhost:3000/recover-account?code={}",&user.id),
+                &format!("http://localhost:3000/recover-account?code={}", &user.id),
                 &user.email,
             )
             .await?;
@@ -867,47 +1158,37 @@ pub async fn reset_password(
     }
 }
 
-
-
 #[put("auth/reset/confirm")]
 pub async fn confirm_reset_user_password(
     app_data: web::Data<crate::AppState>,
     user_data: Json<UpdateUserPassword>,
 ) -> Result<HttpResponse, UserCustomResponseError> {
-    
-        match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
-                        match serde_json::from_str::<UpdateUserPassword>(&user_data) {
-                            Ok(user) => Ok(user),
-                            Err(e) => Err(e.into()),
-                        }
-                    }) {
-                        Ok(mut update_result) => {
-                            update_result.set_password.hash_password();
-                            Ok(app_data
-                                .container
-                                .user
-                                .update_password(
-                                    &update_result.id,
-                                    &update_result.set_password.new_password,
-                                )
-                                .await)
-                        }
-                        Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
-                    }
-                    .and_then(|response| {
-                        match bson::from_document::<UserDeserializeModel>(
-                            response.unwrap().unwrap_or(Document::new()),
-                        ) {
-                            //change this one
-                            Ok(user) => {
-                                Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user)))
-                            }
-                            Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
-                        }
-                    })
-
+    match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
+        match serde_json::from_str::<UpdateUserPassword>(&user_data) {
+            Ok(user) => Ok(user),
+            Err(e) => Err(e.into()),
+        }
+    }) {
+        Ok(mut update_result) => {
+            update_result.set_password.hash_password();
+            Ok(app_data
+                .container
+                .user
+                .update_password(&update_result.id, &update_result.set_password.new_password)
+                .await)
+        }
+        Err(_serialization_error) => Err(UserCustomResponseError::BadHeaderData),
+    }
+    .and_then(|response| {
+        match bson::from_document::<UserDeserializeModel>(
+            response.unwrap().unwrap_or(Document::new()),
+        ) {
+            //change this one
+            Ok(user) => Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user))),
+            Err(_bson_de_error) => Err(UserCustomResponseError::NotFound),
+        }
+    })
 }
-
 
 #[post("auth/send/account")]
 pub async fn send_user_account(
@@ -915,7 +1196,7 @@ pub async fn send_user_account(
     user_data: Json<SendAccountModel>,
 ) -> Result<HttpResponse, UserCustomResponseError> {
     println!("user_data: {:?}", user_data);
-    let accoun_object=user_data.clone();
+    let accoun_object = user_data.clone();
     let result = match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
         match serde_json::from_str::<SendAccountModel>(&user_data) {
             Ok(user) => Ok(user),
@@ -949,16 +1230,82 @@ pub async fn send_user_account(
     };
     match result {
         Ok(user) => {
-    
             send_user_login_account(
                 &format!("{} {}", &user.first_name, &user.last_name),
                 &accoun_object.password,
                 &accoun_object.role,
-                &user.email
+                &user.email,
             )
             .await?;
             Ok(HttpResponse::Ok().json(user))
         }
         Err(e) => Err(e.into()),
     }
+}
+
+
+
+#[post("auth/verfiyToken")]
+pub async fn verfiy_Token(
+    req: HttpRequest,
+    app_data: web::Data<crate::AppState>,
+    user_data: Json<SendAccountModel>,
+) -> Result<HttpResponse, UserCustomResponseError> {
+    
+    let basic_auth_header = match req.headers().get("Authorization") {
+        Some(header) => match header
+            .to_str()
+            .and_then(|token| Ok(token.replace("Bearer ", "")))
+        {
+            Ok(token) => match decode::<TokenPayload>(
+                &token,
+                &DecodingKey::from_secret("secret".as_ref()),
+                &Validation {
+                    validate_exp: false,
+                    ..Default::default()
+                },
+            ) {
+                Ok(token_payload) => Ok(token_payload),
+                Err(_jwt_error) => Err(UserCustomResponseError::BadHeaderData),
+            },
+            Err(_to_str_error) => Err(UserCustomResponseError::BadHeaderData),
+        },
+        None => Err(UserCustomResponseError::BadHeaderData),
+    };
+
+    match basic_auth_header {
+        Ok(token) => {
+
+            let token: TokenPayload = token.claims;
+            match app_data
+                .container
+                .user
+                .find_one_by_id(&token.id)
+                .await
+                .and_then(|document| {
+                    let user = match document {
+                        Some(doc) => doc,
+                        None => bson::Document::new(),
+                    };
+                    Ok(user)
+                }) {
+                Ok(result) => match result {
+                    result => {
+                        if !result.is_empty() {
+                            match bson::from_document::<UserDeserializeModel>(result) {
+                                Ok(user) => Ok(HttpResponse::Ok().json(UserResponseModel::build_user(user))),
+                                Err(_bson_de_error) => Err(UserCustomResponseError::InternalError),
+                            }
+                        } else {
+                            Err(UserCustomResponseError::BadHeaderData)
+                        }
+                    }
+                },
+                Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
+            }
+         
+          }
+        Err(e)=> Err(e.into())
+        }
+
 }

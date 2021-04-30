@@ -52,11 +52,10 @@ pub mod emailer {
         }
     }
 
-
     pub async fn send_user_login_account(
         user_name: &str,
         password: &str,
-        role:&str,
+        role: &str,
         to: &str,
     ) -> Result<Response, UserCustomResponseError> {
         match SmtpClient::new_simple("smtp.gmail.com") {
@@ -68,11 +67,12 @@ pub mod emailer {
                     ))
                     .transport();
 
-                let email= match EmailBuilder::new()
-     .to(to)
-     .from("logeddata@gmail.com")
-     .subject("Astro Build Create Account")
-     .html(format!("
+                let email = match EmailBuilder::new()
+                    .to(to)
+                    .from("logeddata@gmail.com")
+                    .subject("Astro Build Create Account")
+                    .html(format!(
+                        "
 
      <h3>Hi ,{}</h3>
      <p>
@@ -86,11 +86,14 @@ pub mod emailer {
      <p>
      The AstroLab Team
      </p>  
-     ",user_name,role,to,password)).build(){
-
-         Ok(builder)=>Ok(builder),
-         Err(_email_error)=>Err(UserCustomResponseError::InternalError)
-        };
+     ",
+                        user_name, role, to, password
+                    ))
+                    .build()
+                {
+                    Ok(builder) => Ok(builder),
+                    Err(_email_error) => Err(UserCustomResponseError::InternalError),
+                };
                 match mailer.send(email?.into()) {
                     Ok(mail) => Ok(mail),
                     Err(_smtp_error) => Err(UserCustomResponseError::InternalError),
@@ -99,7 +102,4 @@ pub mod emailer {
             Err(_smtp_error) => Err(UserCustomResponseError::InternalError),
         }
     }
-
-
-
 }
