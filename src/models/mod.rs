@@ -164,7 +164,7 @@ impl UserCollection {
             .await?)
     }
 
-    pub async fn find_one_and_id_and_pass(
+    pub async fn find_one_by_id_and_pass(
         &self,
         id: &str,
         password: &str,
