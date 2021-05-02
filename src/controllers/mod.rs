@@ -560,7 +560,7 @@ pub async fn delete_user(
         Ok(token) => {
             user_data.hash_password();
             let token: TokenPayload = token.claims;
-            let validation_data: Result<UserResponseModel, UserCustomResponseError> = match app_data
+            let validation_data: UserResponseModel= match app_data
                 .container
                 .user
                 .find_one_by_id_and_pass(&token.id, &user_data.password)
@@ -584,9 +584,9 @@ pub async fn delete_user(
                     }
                 },
                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-            };
+            }?;
 
-            match validation_data?.role {
+            match validation_data.role {
                 Role::Admin => {
                     match serde_json::to_string(&user_data.into_inner()).and_then(|user_data| {
                         match serde_json::from_str::<DeleteByUserId>(&user_data) {
@@ -637,11 +637,14 @@ pub async fn delete_user(
                             Err(e) => Err(e.into()),
                         }
                     }) {
-                        Ok(user_id) => Ok(
-                            match app_data
+                        Ok(user_id) =>{
+
+                            if token.id==user_id.id {
+                                Ok(
+                                match app_data
                                 .container
                                 .user
-                                .deactivate_user(&user_id.id, &false)
+                                .delete_one(&user_id.id)
                                 .await
                                 .and_then(|document| {
                                     let user = match document {
@@ -668,8 +671,12 @@ pub async fn delete_user(
                                     }
                                 },
                                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-                            },
-                        ),
+                            })
+                            }else {
+                                Err(UserCustomResponseError::NotAllowed)
+                            }
+
+                        },
                         Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
                     }?
                 }
@@ -680,11 +687,14 @@ pub async fn delete_user(
                             Err(e) => Err(e.into()),
                         }
                     }) {
-                        Ok(user_id) => Ok(
-                            match app_data
+                        Ok(user_id) => {
+
+                            if token.id==user_id.id {
+                                Ok(
+                                match app_data
                                 .container
                                 .user
-                                .deactivate_user(&user_id.id, &false)
+                                .delete_one(&user_id.id)
                                 .await
                                 .and_then(|document| {
                                     let user = match document {
@@ -711,8 +721,12 @@ pub async fn delete_user(
                                     }
                                 },
                                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-                            },
-                        ),
+                            })
+                            }else {
+                                Err(UserCustomResponseError::NotAllowed)
+                            }
+
+                        },
                         Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
                     }?
                 }
@@ -723,11 +737,14 @@ pub async fn delete_user(
                             Err(e) => Err(e.into()),
                         }
                     }) {
-                        Ok(user_id) => Ok(
-                            match app_data
+                        Ok(user_id) =>{
+
+                            if token.id==user_id.id {
+                                Ok(
+                                match app_data
                                 .container
                                 .user
-                                .deactivate_user(&user_id.id, &false)
+                                .delete_one(&user_id.id)
                                 .await
                                 .and_then(|document| {
                                     let user = match document {
@@ -754,9 +771,13 @@ pub async fn delete_user(
                                     }
                                 },
                                 Err(_mongodb_error) => Err(UserCustomResponseError::InternalError),
-                            },
-                        ),
-                        Err(_serde_json_error) => Err(UserCustomResponseError::BadClientData),
+                            })
+                            }else {
+                                Err(UserCustomResponseError::BadClientData)
+                            }
+
+                        },
+                        Err(_serde_json_error) => Err(UserCustomResponseError::NotAllowed),
                     }?
                 }
             }

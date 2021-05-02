@@ -125,7 +125,7 @@ pub struct UserDeserializeModel {
     pub last_name: String,
     pub phone: PhoneModel,
     pub address: AddressModel,
-    pub active: bool,
+
     pub role: Role,
 }
 
@@ -137,7 +137,7 @@ pub struct UserResponseModel {
     pub last_name: String,
     pub phone: PhoneModel,
     pub address: AddressModel,
-    pub active: bool,
+
     pub role: Role,
 }
 
@@ -150,7 +150,7 @@ impl UserResponseModel {
             last_name: user.last_name,
             phone: user.phone,
             address: user.address,
-            active: user.active,
+ 
             role: user.role,
         }
     }
@@ -164,7 +164,7 @@ pub struct UserModel {
     pub last_name: String,
     pub phone: PhoneModel,
     pub address: AddressModel,
-    pub active: bool,
+
     pub role: Role,
 }
 
