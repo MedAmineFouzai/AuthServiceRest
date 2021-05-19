@@ -1,7 +1,5 @@
 use bson::oid::ObjectId;
-use pwhash::bcrypt::{self, BcryptSetup, BcryptVariant};
 use serde::{self, Deserialize, Serialize};
-
 use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,15 +15,7 @@ pub struct DeleteByUserId {
 
 impl DeleteByUserId {
     pub fn hash_password(&mut self) {
-        self.password = bcrypt::hash_with(
-            BcryptSetup {
-                variant: Some(BcryptVariant::V2a),
-                salt: Some("delta"),
-                cost: Some(4),
-            },
-            &self.password,
-        )
-        .unwrap();
+        self.password =  base16::encode_lower(&self.password);
     }
 }
 
@@ -83,15 +73,7 @@ pub struct UpdateUserPassword {
 
 impl PasswordModel {
     pub fn hash_password(&mut self) {
-        self.new_password = bcrypt::hash_with(
-            BcryptSetup {
-                variant: Some(BcryptVariant::V2a),
-                salt: Some("delta"),
-                cost: Some(4),
-            },
-            &self.new_password,
-        )
-        .unwrap();
+        self.new_password =  base16::encode_lower(&self.new_password);
     }
 }
 
@@ -170,15 +152,7 @@ pub struct UserModel {
 
 impl UserModel {
     pub fn hash_password(&mut self) {
-        self.password = bcrypt::hash_with(
-            BcryptSetup {
-                variant: Some(BcryptVariant::V2a),
-                salt: Some("delta"),
-                cost: Some(4),
-            },
-            &self.password,
-        )
-        .unwrap();
+        self.password =  base16::encode_lower(&self.password);
     }
 }
 
@@ -190,21 +164,13 @@ pub struct TokenPayload {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserLoginModel {
-    email: String,
-    password: String,
+    pub email: String,
+    pub password: String,
 }
 
 impl UserLoginModel {
     pub fn hash_password(&mut self) {
-        self.password = bcrypt::hash_with(
-            BcryptSetup {
-                variant: Some(BcryptVariant::V2a),
-                salt: Some("delta"),
-                cost: Some(4),
-            },
-            &self.password,
-        )
-        .unwrap();
+        self.password =  base16::encode_lower(&self.password);
     }
 }
 
