@@ -243,7 +243,7 @@ pub async fn get_all_users(
                 },
                 Role::Client => Err(UserCustomResponseError::NotAllowed),
                 Role::Developer => Err(UserCustomResponseError::NotAllowed),
-                Role::ProductOwner => match app_data.container.user.find_all_users().await {
+                Role::ProductOwner => match app_data.container.user.find_all().await {
                     Ok(cursor) => {
                         let users: Vec<UserResponseModel> = cursor
                             .map(|document| {
