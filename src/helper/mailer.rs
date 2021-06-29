@@ -25,20 +25,41 @@ pub mod emailer {
      .subject("Astro Build Password Reset")
      .html(format!("
 
-     <h3>Hi ,{}</h3>
-     <p>
-     we've received a request to reset your password. if you didn't make the request,just ignore this email.
-     Otherwise ,you can reset your password using this link:
-     </p>
+                    <head>
+    <link rel='preconnect' href='https://fonts.googleapis.com'>
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+    <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap' rel='stylesheet'>
+</head>
+
+<body style='margin: 0;
+padding: 0;
+box-sizing: border-box;
+font-family: Inter, sans-serif;'>
+    <div class='container' style='display: grid;
+grid-template-columns: 1fr;
+row-gap: 1rem;
+align-items: center;
+justify-content: center;
+width: 65%;
+margin: 50px auto;
+padding: 50px;
+border: 2px solid black;
+border-radius: 10px;'>
+        <h1>Hi, {}</h1>
+        <p> we've received a request to reset your password. if you didn't make the request,just ignore this email.
+     Otherwise ,you can reset your password using this link:</p>
+        <div style='display: grid;
+    grid-template-columns: 1fr;
+    row-gap: 0.25rem;'>
+           
      <div>
          <a href={} >Click here to reset your Password </a>  
      </div>
-     <p>   
-     Thanks.actix_web
-     </p>
-     <p>
-     The AstroLab Team
-     </p>  
+            </pre>
+            <p>Astrobuild &copy Astrolab Agency</p>
+        </div>
+</body>
+         
      ",user_name,reset_link)).build(){
          Ok(builder)=>Ok(builder),
          Err(_email_error)=>Err(UserCustomResponseError::InternalError)
