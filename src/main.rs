@@ -1,85 +1,80 @@
-mod controllers;
 mod helper;
 mod middleware;
 mod models;
+mod services;
 use actix_web::{
-    web::{scope, ServiceConfig},
+    web::{scope, Data},
     App, HttpServer,
 };
-
+use bson::doc;
 use load_dotenv::load_dotenv;
-use middleware::{
-    cors_middelware::init_cors,
-    logging_middelware::{get_subscriber, init_subscriber},
-};
-// use models::UserCollection;
-use mongodb::{options::ClientOptions, Client, Collection};
+use middleware::{get_health_status, init_cors};
+use models::{User, UserCollection};
+use mongodb::{options::ClientOptions, Client};
+use services::{load_auth_services, load_user_services};
 use std::env;
-use tracing_actix_web::TracingLogger;
 
-// pub struct CollectionContainer {
-//     #[allow(dead_code)]
-//     user: UserCollection,
-// }
-// impl CollectionContainer {
-//     pub fn new(user: UserCollection) -> CollectionContainer {
-//         CollectionContainer { user }
-//     }
-// }
+#[derive(Clone)]
+pub struct Container {
+    collection: UserCollection,
+}
 
-// pub struct AppState {
-//     #[allow(dead_code)]
-//     container: CollectionContainer,
-// }
+impl Container {
+    pub fn new(collection: UserCollection) -> Container {
+        Container { collection }
+    }
+}
 
-// async fn establish_connection() -> Collection {
-//     load_dotenv!();
-//     let client_options = ClientOptions::parse(env!("USER_DATABASE_URL"))
-//         .await
-//         .unwrap();
-//     let client = Client::with_options(client_options).unwrap();
-//     let db = client.database(env!("USER_DATABASE"));
-//     db.collection(env!("USER_COLLECTION"))
-// }
+pub struct AppState {
+    #[allow(dead_code)]
+    container: Container,
+}
 
-// pub fn init_services(cfg: &mut ServiceConfig) {
-//     cfg.service(controllers::signup)
-//         .service(controllers::login)
-//         .service(controllers::get_all_users)
-//         .service(controllers::delete_user)
-//         .service(controllers::update_user_info)
-//         .service(controllers::update_user_password)
-//         .service(controllers::reset_password)
-//         .service(controllers::confirm_reset_user_password)
-//         .service(controllers::send_user_account)
-//         .service(controllers::verfiy_Token)
-//         .service(controllers::get_user_by_id);
-// }
+async fn establish_connection() -> Option<UserCollection> {
+    load_dotenv!();
+    Client::with_options(
+        match ClientOptions::parse(env!("USER_DATABASE_URL")).await.ok() {
+            Some(client_options) => client_options,
+            None => panic!("Couldn't Parse Client Options"),
+        },
+    )
+    .and_then(|client| Ok(client.database(env!("USER_DATABASE"))))
+    .ok()
+    .and_then(|database| {
+        println!("established connection");
+        Some(UserCollection::new(
+            database.collection::<User>(env!("USER_COLLECTION")),
+        ))
+    })
+}
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    // let subscriber = get_subscriber("app".into(), "info".into());
-    // init_subscriber(subscriber);
-    let port: u16 = env::var("PORT")
-        .unwrap_or_else(|_| "8080".to_string())
-        .parse()
-        .expect("PORT must be a number");
-
-    // let user_collection = establish_connection().await;
-    println!("🚀 Server ready at http://127.0.0.1:8080");
+    let container = Container::new(
+        establish_connection()
+            .await
+            .expect("Failed to create connection"),
+    );
     HttpServer::new(move || {
-        // let collection_container =
-        //     CollectionContainer::new(UserCollection::new(user_collection.clone()));
-
         App::new()
             .wrap(init_cors())
             // .wrap(TracingLogger)
-            // .data(AppState {
-            //     container: collection_container,
-            // })
-            // .service(scope("/api/v1/users/").configure(init_services))
+            .app_data(Data::new(AppState {
+                container: Container {
+                    collection: container.collection.clone(),
+                },
+            }))
+            .service(scope("/auth").configure(load_auth_services))
+            .service(scope("/user").configure(load_user_services))
+            .service(get_health_status)
     })
-    .bind(("0.0.0.0".to_string(), port))?
+    .bind((
+        "0.0.0.0".to_string(),
+        env::var("PORT")
+            .unwrap_or_else(|_| "8080".to_string())
+            .parse()
+            .expect("PORT MUST BE A NUMBER"),
+    ))?
     .run()
     .await
 }

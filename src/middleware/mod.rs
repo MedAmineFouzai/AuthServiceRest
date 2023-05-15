@@ -1,9 +1,11 @@
 pub mod cors;
 pub mod error;
 pub mod logging;
-pub use cors::cors_middelware;
-pub use error::UserCustomResponseError;
+pub mod health;
+pub use cors::cors_middelware::init_cors;
+pub use error::ServerResponseError;
 pub use logging::logging_middelware;
+pub use health::get_health_status;
 
 //add validators unknown for me how much long it takes still !
 

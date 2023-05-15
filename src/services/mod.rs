@@ -1,3 +1,7 @@
+mod auth;
+mod user;
+pub use auth::load_auth_services;
+pub use user::load_user_services;
 // extern crate jsonwebtoken as jwt;
 // use crate::helper::mailer::emailer::{send_email_for_password_reset, send_user_login_account};
 // use crate::middleware::error::UserCustomResponseError;
@@ -605,7 +609,7 @@
 //                                         Some(doc) => doc,
 //                                         None => bson::Document::new(),
 //                                     })
-                                   
+
 //                                 }) {
 //                                 Ok(document) => match document {
 //                                     document => {

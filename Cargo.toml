@@ -5,7 +5,6 @@ authors = ["MedAmineFouzai <54685665+MedAmineFouzai@users.noreply.github.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 actix-web = "4.3.1"
 actix-rt = "2.8.0"
@@ -26,6 +25,7 @@ futures = "0.3.4"
 bson = "2.6.1"
 dotenv = "0.15.0"
 load-dotenv = "0.1.2"
+chrono = "0.4.24"
 bunyan = "0.1.9"
 [dependencies.mongodb]
 version = "2.4.0"

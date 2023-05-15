@@ -1,9 +1,7 @@
-mod user;
-use std::str::FromStr;
+pub mod user;
+use std::{str::FromStr, fmt::Debug};
 
-use user::{
-    user_address_model::Address, user_model::User, user_phone_model::Phone, user_role_model::Role,
-};
+pub use user::user_model::User;
 
 use bson::{doc, oid::ObjectId, Document};
 use mongodb::{
@@ -25,8 +23,9 @@ impl UserCollection {
 
     pub async fn find_one<T>(&self, document: T) -> Result<Option<User>, Error>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + Debug,
     {
+        println!("{:?}",document);
         let query = match bson::to_bson(&document) {
             Ok(bson_document) => match bson_document.as_document() {
                 Some(document) => document.clone(),
@@ -34,6 +33,7 @@ impl UserCollection {
             },
             _ => Document::new(),
         };
+        dbg!(&query);
 
         return self.collection.find_one(query, None).await;
     }
